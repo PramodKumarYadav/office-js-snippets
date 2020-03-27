@@ -1,0 +1,156 @@
+order: 5
+id: excel-just-for-fun-color-wheel
+name: Wheel of colors
+description: Uses chart formatting to draw a wheel with changing colors. Contributed by Alexander Zlatkovski.
+author: AlexanderZlatkovski
+host: EXCEL
+api_set:
+    ExcelApi: '1.4'
+script:
+    content: |
+        $("#wheel").click(wheelGo);
+        $("#stop").click(wheelStop);
+
+        let isStopped: boolean
+
+        const pauseLength = 50;
+        const numberOfSlices = 32;
+
+        async function wheelGo() {
+            try {
+                Excel.run(async (context) => {
+                    isStopped = false;
+
+                    // Create a hidden sheet which will contain data for the color wheel chart:
+                    context.workbook.worksheets.getItemOrNullObject("Color Wheel Settings").delete();
+                    const sheetSettings = context.workbook.worksheets.add("Color Wheel Settings");
+                    sheetSettings.visibility = Excel.SheetVisibility.hidden;
+                    const dataRange = sheetSettings.getRange("A1:A" + numberOfSlices);
+                    const matrix = new Array();
+                    for (let r = 0; r < numberOfSlices; r++) {
+                        matrix[r] = new Array();
+                        for (let c = 0; c < 1; c++) {
+                            matrix[r][c] = 1;
+                        }
+                    }
+                    dataRange.values = matrix;
+
+                    // Create a sheet for the color wheel and format it
+                    context.workbook.worksheets.getItemOrNullObject("Color Wheel").delete();
+                    const sheet = context.workbook.worksheets.add("Color Wheel");
+                    
+                    sheet.charts.load("id");
+                    sheet.activate();
+
+                    let theWheel = sheet.charts.add(Excel.ChartType.pie, dataRange, "Auto");
+
+                    theWheel.format.fill.setSolidColor('black')
+                    theWheel.setPosition("A1");
+                    theWheel.width = 300;
+                    theWheel.height = 300;
+                    theWheel.title.visible = false;
+                    theWheel.legend.visible = false;
+
+                    let points = theWheel.series.getItemAt(0).points;
+                    for (var i = 0; i < numberOfSlices; i++) {
+                        points.getItemAt(i).format.fill.setSolidColor("black")
+                    }
+
+                    await context.sync();
+                    sheet.charts.items.forEach(item => item.delete());
+
+                    await pause(700);
+
+                    // Draw pretty colors, ad infinitum
+                    while (!isStopped) {
+                        const colorMultiplier = 256 / numberOfSlices;
+                        await loopThroughColors(points, numberOfSlices * 2, i =>
+                            rgb(255, colorMultiplier / 2 * i, 0)); /* red to orange to yellow*/
+                        await loopThroughColors(points, numberOfSlices, i =>
+                            rgb(255 - colorMultiplier * i, 255, 0)); /* yellow to green*/
+                        await loopThroughColors(points, numberOfSlices, i =>
+                            rgb(0, 255, colorMultiplier * i)); /* green to blue*/
+                        await loopThroughColors(points, numberOfSlices, i =>
+                            rgb(0, 255 - colorMultiplier * i, 255)); /* blue to indigo*/
+                        await loopThroughColors(points, numberOfSlices, i =>
+                            rgb(colorMultiplier * i, 0, 255)); /* indigo to violet*/
+                        await loopThroughColors(points, numberOfSlices, i =>
+                            rgb(255, 0, 255 - colorMultiplier * i)); /* back from violet to red*/
+                    }
+                });
+            }
+            catch (error) {
+                // Note: In a production add-in, you'd want to notify the user through your add-in's UI.
+                console.error(error);
+            }
+        }
+
+        async function loopThroughColors(points: Excel.ChartPointsCollection, max, colorGenerator: (i: number) => string) {
+            for (var i = 0; i < max; i++) {
+                if (isStopped) {
+                    return;
+                }
+                var X = i % numberOfSlices;
+                await pause(pauseLength);
+                var color = colorGenerator(i);
+                points.getItemAt(X).format.fill.setSolidColor(color);
+                await points.context.sync();
+            }
+        }
+
+        function wheelStop() {
+            isStopped = true;
+        }
+
+        function pause(milliseconds) {
+            return new Promise(resolve => setTimeout(resolve, milliseconds))
+        }
+
+        function rgb(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)
+        }
+    language: typescript
+template:
+    content: |+
+        <h2 class="ms-font-l">Spin the rainbow wheel</h2>
+        <br/>
+        <button id="wheel" class="ms-Button ms-Button--primary">
+                <span class="ms-Button-label">Start the Wheel</span>
+            </button>
+            <br/>
+        <br/>
+        <button id="stop" class="ms-Button">
+                <span class="ms-Button-label">Stop the Wheel</span>
+            </button>
+
+    language: html
+style:
+    content: |
+        h2:not(:first-child) {
+            margin-top: 35px;
+        }
+
+
+        section.samples {
+            margin-top: 20px;
+        }
+
+        section.samples .ms-Button, section.setup .ms-Button {
+            display: block;
+            margin-bottom: 5px;
+            margin-left: 20px;
+            min-width: 80px;
+        }
+    language: css
+libraries: |
+    https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+    @types/office-js
+
+    office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+    office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+    core-js@2.4.1/client/core.min.js
+    @types/core-js
+
+    jquery@3.1.1
+    @types/jquery@3.3.1

@@ -1,0 +1,225 @@
+order: 2
+id: excel-range-copyfrom
+name: Copy and paste ranges
+description: Copies or moves data and formatting from one range to another.
+host: EXCEL
+api_set:
+    ExcelApi: '1.10'
+script:
+    content: |
+        $("#setup").click(() => tryCatch(setup));
+        $("#copyAll").click(() => tryCatch(copyAll));
+        $("#copyFormula").click(() => tryCatch(copyFormula));
+        $("#copyFormulaResult").click(() => tryCatch(copyFormulaResult));
+        $("#copySingleAcrossRange").click(() => tryCatch(copySingleAcrossRange));
+        $("#copyOnlyFormat").click(() => tryCatch(copyOnlyFormat));
+        $("#skipBlanks").click(() => tryCatch(skipBlanks));
+        $("#transpose").click(() => tryCatch(transpose));
+        $("#move").click(() => tryCatch(move));
+
+        async function copyAll() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F1").values = [["Copied Range"]];
+
+                // Copy a range starting at a single cell destination.
+                sheet.getRange("G1").copyFrom("A1:E1");
+                await context.sync();
+            });
+        }
+
+        async function copyFormula() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F2").values = [["Copied Formula"]];
+
+                // Copy a range preserving the formulas.
+                // Note: non-formula values are copied over as is.
+                sheet.getRange("G2").copyFrom("A1:E1", Excel.RangeCopyType.formulas);
+                await context.sync();
+            });
+        }
+
+        async function copyFormulaResult() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F3").values = [["Copied Formula Result"]];
+
+                // Copy the resulting value of a formula.
+                sheet.getRange("G3").copyFrom("E1", Excel.RangeCopyType.values);
+                await context.sync();
+            });
+        }
+
+        async function copySingleAcrossRange() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F4").values = [["Single Source"]];
+
+                // Copy a single cell across an entire range.
+                sheet.getRange("G4:K4").copyFrom("A1", Excel.RangeCopyType.values);
+                await context.sync();
+            });
+        }
+
+        async function copyOnlyFormat() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F5").values = [["Copied Formatting"]];
+
+                // Copy only the formatting of the cells.
+                sheet.getRange("G5").copyFrom("A1:E1", Excel.RangeCopyType.formats);
+                await context.sync();
+            });
+        }
+
+        async function skipBlanks() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the copied data.
+                sheet.getRange("F6").values = [["Copied Without Blanks"]];
+
+                // Fill the destination range so we can see the blank being skipped.
+                sheet.getRange("G6:K6").values = [["Old Data", "Old Data", "Old Data", "Old Data", "Old Data"]]
+
+                // Copy a range, omitting the blank cells so existing data is not overwritten in those cells.
+                sheet.getRange("G6").copyFrom("A1:E1",
+                    Excel.RangeCopyType.all,
+                    true, // skipBlanks
+                    false); // transpose
+                await context.sync();
+            });
+        }
+
+        async function transpose() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the transposed data.
+                sheet.getRange("F7").values = [["Transpose"]];
+
+                // Transpose a horizontal range of data into a vertical range.
+                sheet.getRange("G7").copyFrom("A1:E1",
+                    Excel.RangeCopyType.all,
+                    false, // skipBlanks
+                    true); // transpose
+                await context.sync();
+            });
+        }
+
+        async function move() {
+            await Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Sample");
+                // Place a label in front of the moved data.
+                sheet.getRange("F12").values = [["Moved Range:"]];
+
+                // Move the range from A1:E1 to G12:K12.
+                sheet.getRange("A1:E1").moveTo("G12");
+                await context.sync();
+            });
+        }
+
+        async function setup() {
+            await Excel.run(async (context) => {
+                context.workbook.worksheets.getItemOrNullObject("Sample").delete();
+
+                const sheet = context.workbook.worksheets.add("Sample");
+                sheet.getRange("A1:D1").values = [["3", "5", "7", ""]];
+                sheet.getRange("A1:D1").format.font.italic = true;
+                sheet.getRange("A1:D1").format.font.color = "DarkMagenta";
+                sheet.getRange("E1").formulas = [["=SUM(A1:D1)"]];
+                sheet.getRange("E1").format.font.bold = true;
+                sheet.getRange("E1").format.fill.color = "LightGreen";
+                sheet.getRange("F1").format.columnWidth = 120;
+                
+                sheet.activate();
+                await context.sync();
+            });
+        }
+
+        /** Default helper for invoking an action and handling errors. */
+        async function tryCatch(callback) {
+            try {
+                await callback();
+            }
+            catch (error) {
+                // Note: In a production add-in, you'd want to notify the user through your add-in's UI.
+                console.error(error);
+            }
+        }
+    language: typescript
+template:
+    content: |-
+        <section class="ms-font-m">
+            <p>This sample shows how to copy data and formatting from one range (<b>A1:E1</b>) to another.</p>
+        </section>
+        <section class="setup ms-font-m">
+            <h3>Setup</h3>
+            <button id="setup" class="ms-Button">
+                <span class="ms-Button-label">Create sample data</span>
+            </button>
+        </section>
+        <section class="setup ms-font-m">
+            <h3>Try it out</h3>
+            <button id="copyAll" class="ms-Button">
+                <span class="ms-Button-label">Copy numbers</span>
+            </button>
+            <p/>
+            <button id="copyFormula" class="ms-Button">
+                <span class="ms-Button-label">Copy formula</span>
+            </button>
+            <p/>
+            <button id="copyFormulaResult" class="ms-Button">
+                <span class="ms-Button-label">Copy formula result</span>
+            </button>
+            <p/>
+            <button id="copySingleAcrossRange" class="ms-Button">
+                <span class="ms-Button-label">Copy a single cell across a range</span>
+            </button>
+            <p/>
+            <button id="copyOnlyFormat" class="ms-Button">
+                <span class="ms-Button-label">Copy only format</span>
+            </button>
+            <p/>
+            <button id="skipBlanks" class="ms-Button">
+                <span class="ms-Button-label">Skip blanks</span>
+            </button>
+            <p/>
+            <button id="transpose" class="ms-Button">
+                <span class="ms-Button-label">Transpose copy range</span>
+            </button>
+            <p />
+            <button id="move" class="ms-Button">
+                <span class="ms-Button-label">Move a range</span>
+            </button>
+         </section>
+    language: html
+style:
+    content: |-
+        section.samples {
+            margin-top: 20px;
+        }
+
+        section.samples .ms-Button, section.setup .ms-Button {
+            display: block;
+            margin-bottom: 5px;
+            margin-left: 20px;
+            min-width: 80px;
+        }
+    language: css
+libraries: |-
+    https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+    @types/office-js
+
+    office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+    office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+    core-js@2.4.1/client/core.min.js
+    @types/core-js
+
+    jquery@3.1.1
+    @types/jquery@3.3.1

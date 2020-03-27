@@ -1,0 +1,59 @@
+order: 3
+id: powerpoint-basics-get-slide-metadata
+name: Get slide metadata
+description: 'Gets the title, index, and ID of the selected slide(s).'
+author: OfficeDev
+host: POWERPOINT
+api_set: {}
+script:
+    content: |-
+        $("#get-slide-metadata").click(getSlideMetadata);
+
+        function getSlideMetadata() {
+            Office.context.document.getSelectedDataAsync(Office.CoercionType.SlideRange,
+                function (asyncResult) {
+                    if (asyncResult.status === Office.AsyncResultStatus.Failed) {
+                        console.error(asyncResult.error.message);
+                    } else {
+                        console.log(JSON.stringify(asyncResult.value, null, 4));
+                    }
+                }
+            );
+        }
+    language: typescript
+template:
+    content: |-
+        <section class="ms-font-m">
+            <p class="ms-font-m">Demonstrates how to get slide metadata.</p>
+            <p class="ms-font-m">Select one or more slides and click <b>Get slide metadata</b> to get the ID, title, and index of the slide(s).</p>
+        </section>
+
+        <button id="get-slide-metadata" class="ms-Button">
+            <span class="ms-Button-label">Get slide metadata</span>
+        </button>
+    language: html
+style:
+    content: |-
+        section.samples {
+            margin-top: 20px;
+        }
+
+        section.samples .ms-Button, section.setup .ms-Button {
+            display: block;
+            margin-bottom: 5px;
+            margin-left: 20px;
+            min-width: 80px;
+        }  
+    language: css
+libraries: |
+    https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+    @types/office-js
+
+    office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+    office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+    core-js@2.4.1/client/core.min.js
+    @types/core-js
+
+    jquery@3.1.1
+    @types/jquery@3.3.1

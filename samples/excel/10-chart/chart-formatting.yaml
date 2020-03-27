@@ -1,0 +1,225 @@
+order: 5
+id: excel-chart-formatting
+name: Formatting
+description: Formats labels and lines of a slope chart.
+host: EXCEL
+api_set:
+    ExcelApi: '1.8'
+script:
+    content: |
+        $("#setup").click(() => tryCatch(setup));
+        $("#format-chart").click(() => tryCatch(formatChart));
+        $("#show-datalabels").click(() => tryCatch(dataLabels));
+        $("#change-color").click(() => tryCatch(changeColor));
+        $("#clear").click(() => tryCatch(clearChart));
+
+        async function formatChart() {
+            await Excel.run(async (context) => {
+                const worksheet = context.workbook.worksheets.getActiveWorksheet();
+                const chart = worksheet.charts.getItem("SlopeChart");
+
+                chart.axes.valueAxis.tickLabelPosition = "None";
+                chart.plotArea.width = 800;
+                chart.plotArea.left = 80;
+
+                chart.title.format.font.size = 14.4;
+                chart.title.text = "Contoso Bike Parts - 2018";
+                chart.title.format.font.name = "Times New Roman";
+                chart.title.format.font.color = "#D9D9D9";
+
+                chart.legend.format.font.name = "Times New Roman";
+                chart.legend.format.font.color = "#D9D9D9";
+
+                chart.axes.categoryAxis.format.font.name = "Times New Roman";
+                chart.axes.categoryAxis.format.font.color = "#D9D9D9";
+                chart.axes.valueAxis.majorGridlines.format.line.color = "#585858";
+                chart.format.fill.setSolidColor("#404040");
+                await context.sync();
+            });
+        }
+
+        async function dataLabels() {
+            await Excel.run(async (context) => {
+                const worksheet = context.workbook.worksheets.getActiveWorksheet();
+                const chart = worksheet.charts.getItem("SlopeChart");
+                chart.series.load("count");
+                await context.sync();
+                let pointsLoaded = -1;
+                for (let i = 0; i < chart.series.count; i++) {
+                    const series = chart.series.getItemAt(i);
+                    series.hasDataLabels = true;
+                    series.markerSize = 20;
+
+                    series.markerBackgroundColor = "#404040";
+                    series.markerForegroundColor = "#404040";
+
+                    // there are an equal number of points in each series, so we only want to load and sync once
+                    if (pointsLoaded < 0) {
+                        series.points.load("count");
+                        await context.sync();
+                        pointsLoaded = series.points.count;
+                    }
+
+                    for (var j = 0; j < pointsLoaded; j++) {
+                        // the colors assume "Format chart" has been pressed
+                        series.points.getItemAt(j).markerBackgroundColor = "#404040";
+                        series.points.getItemAt(j).markerForegroundColor = "#404040";
+                    }
+
+                    series.points.getItemAt(3).dataLabel.showSeriesName = true;
+                }
+
+                chart.dataLabels.position = "Center";
+                chart.dataLabels.separator = "\n";
+                chart.dataLabels.format.font.color = "#D9D9D9";
+                await context.sync();
+            });
+        }
+
+        async function changeColor() {
+            await Excel.run(async (context) => {
+                const worksheet = context.workbook.worksheets.getActiveWorksheet();
+                const chart = worksheet.charts.getItem("SlopeChart");
+                chart.series.load("count");
+                await context.sync();
+
+                // color everything grey before highlighting spokes
+                for (var i = 0; i < chart.series.count; i++) {
+                    chart.series.getItemAt(i).format.line.color = "#636363";
+                    chart.series.getItemAt(i).dataLabels.format.font.color = "#636363";
+                }
+
+                const highlight = chart.series.getItemAt(5);
+                highlight.format.line.color = "#4472C4";
+                highlight.dataLabels.format.font.color = "#D9D9D9";
+
+                highlight.load("name");
+                await context.sync();
+                highlight.name += " (Focus)";
+                await context.sync();
+            });
+        }
+
+        async function clearChart() {
+            await Excel.run(async (context) => {
+                const charts = context.workbook.worksheets.getActiveWorksheet().charts;
+                charts.load("count");
+                await context.sync();
+
+                for (var i = 0; i < charts.count; i++) {
+                    charts.getItemAt(0).delete();
+                }
+                await context.sync();
+            });
+        }
+
+        async function setup() {
+            await Excel.run(async (context) => {
+                context.workbook.worksheets.getItemOrNullObject("Sample").delete();
+                const sheet = context.workbook.worksheets.add("Sample");
+                
+                let salesTable = sheet.tables.add("A1:E1", true);
+                salesTable.name = "SalesTable";
+
+                salesTable.getHeaderRowRange().values = [["Product", "Qtr1", "Qtr2", "Qtr3", "Qtr4"]];
+
+                salesTable.rows.add(null, [
+                    ["Frames", 5000, 7000, 6544, 5377],
+                    ["Saddles", 400, 323, 276, 1451],
+                    ["Brake levers", 9000, 8766, 8456, 9812],
+                    ["Chains", 1550, 1088, 692, 2553],
+                    ["Mirrors", 225, 600, 923, 344],
+                    ["Spokes", 6005, 7634, 4589, 8765]
+                ]);
+
+                createChart(context);
+                sheet.activate();
+            });
+        }
+
+        async function createChart(context: Excel.RequestContext) {
+            const worksheet = context.workbook.worksheets.getActiveWorksheet();
+            const chart = worksheet.charts.add(
+                Excel.ChartType.lineMarkers,
+                worksheet.getRange("A1:E7"),
+                Excel.ChartSeriesBy.rows
+            );
+            chart.axes.categoryAxis.setCategoryNames(worksheet.getRange("B1:E1"));
+            chart.name = "SlopeChart";
+
+            // place chart below sample data
+            chart.top = 125;
+            chart.left = 5;
+            chart.height = 300;
+            chart.width = 450;
+
+            chart.title.text = "Bicycle Part Production";
+            chart.legend.position = "Bottom";
+
+            await context.sync();
+        }
+
+        /** Default helper for invoking an action and handling errors. */
+        async function tryCatch(callback) {
+            try {
+                await callback();
+            } catch (error) {
+                // Note: In a production add-in, you'd want to notify the user through your add-in's UI.
+                console.error(error);
+            }
+        }
+    language: typescript
+template:
+    content: |-
+        <section class="ms-font-m">
+            <p>This sample shows how to format different aspects of a chart.</p>
+        </section>
+
+        <section class="setup ms-font-m">
+            <h3>Set up</h3>
+                <button id="setup" class="ms-Button">
+                    <span class="ms-Button-label">Add sample data</span>
+                </button>
+        </section>
+
+        <section class="samples ms-font-m">
+            <h3>Try it out</h3>
+                <button id="format-chart" class="ms-Button">
+                    <span class="ms-Button-label">Format chart</span>
+                </button><p>
+                <button id="show-datalabels" class="ms-Button">
+                    <span class="ms-Button-label">Show data labels</span>
+                </button><p>
+                <button id="change-color" class="ms-Button">
+                    <span class="ms-Button-label">Change color</span>
+                </button><p>
+                <button id="clear" class="ms-Button">
+                    <span class="ms-Button-label">Clear chart</span>
+                </button>
+        </section>
+    language: html
+style:
+    content: |-
+        section.samples {
+            margin-top: 20px;
+        }
+
+        section.samples .ms-Button, section.setup .ms-Button {
+            display: block;
+            margin-bottom: 5px;
+            margin-left: 20px;
+            min-width: 80px;
+        }
+    language: css
+libraries: |-
+    https://appsforoffice.microsoft.com/lib/1/hosted/office.js
+    @types/office-js
+
+    office-ui-fabric-js@1.4.0/dist/css/fabric.min.css
+    office-ui-fabric-js@1.4.0/dist/css/fabric.components.min.css
+
+    core-js@2.4.1/client/core.min.js
+    @types/core-js
+
+    jquery@3.1.1
+    @types/jquery@3.3.1
